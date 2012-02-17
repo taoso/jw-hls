@@ -1,6 +1,8 @@
 package com.longtailvideo.adaptive.muxing {
 
 
+    import com.longtailvideo.adaptive.AdaptiveEvent;
+    import com.longtailvideo.adaptive.streaming.Loader;
     import com.longtailvideo.adaptive.muxing.*;
     import com.longtailvideo.adaptive.utils.Log;
     import flash.utils.ByteArray;
@@ -36,12 +38,14 @@ package com.longtailvideo.adaptive.muxing {
         public var videoTags:Vector.<Tag> = new Vector.<Tag>();
         /** List of packetized elementary streams with AVC. **/
         private var _videoPES:Vector.<PES> = new Vector.<PES>();
-		private var _data:ByteArray = null;
+        private var _data:ByteArray = null;
+        private var _loader:Loader;
 
 
         /** Transmux the M2TS file into an FLV file. **/
-        public function TS(data:ByteArray) {
-			_data = data;
+        public function TS(data:ByteArray, loader:Loader) {
+            _data = data;
+            _loader = loader;
             // Extract the elementary streams.
             while(data.bytesAvailable) {
                 _readPacket();
@@ -57,6 +61,8 @@ package com.longtailvideo.adaptive.muxing {
             }
             // Extract the NALU video frames.
             _readNALU();
+            _loader.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.TS_TS, this));
+
         };
 
 
@@ -64,7 +70,7 @@ package com.longtailvideo.adaptive.muxing {
         public function getADIF():ByteArray {
             if(_aacId > 0) {
                 return AAC.getADIF(_audioPES[0].data,_audioPES[0].payload);
-            } else { 
+            } else {
                 return new ByteArray();
             }
         };
@@ -72,7 +78,7 @@ package com.longtailvideo.adaptive.muxing {
 
         /** Get video configuration data. **/
         public function getAVCC():ByteArray {
-            if(_firstKey == -1) { 
+            if(_firstKey == -1) {
                 throw new Error("Cannot parse stream: no keyframe found in TS fragment.");
             }
             return AVC.getAVCC(_videoPES[_firstKey].data,_videoPES[_firstKey].payload);
@@ -102,13 +108,13 @@ package com.longtailvideo.adaptive.muxing {
                     tag = new Tag(Tag.AAC_RAW, stamp,false);
                     if(i == _audioPES.length-1 && j == frames.length - 1) {
                         tag.push(_audioPES[i].data, frames[j].start, _audioPES[i].data.length - frames[j].start);
-                    } else { 
+                    } else {
                         tag.push(_audioPES[i].data, frames[j].start, frames[j].length);
                     }
                     audioTags.push(tag);
                 }
                 // Correct for Segmenter's "optimize", which cuts frames in half.
-                overflow = frames[frames.length-1].start + 
+                overflow = frames[frames.length-1].start +
                     frames[frames.length-1].length - _audioPES[i].data.length;
             }
         };
@@ -136,7 +142,7 @@ package com.longtailvideo.adaptive.muxing {
             var last:Number;
             for(var i:Number=0; i<_videoPES.length; i++) {
                 // Parse the PES headers and NAL units.
-                try { 
+                try {
                     _videoPES[i].parse();
                 } catch (error:Error) {
                     Log.txt(error.message);
@@ -145,7 +151,7 @@ package com.longtailvideo.adaptive.muxing {
                 units = AVC.getNALU(_videoPES[i].data,_videoPES[i].payload);
                 // If there's no NAL unit, push all data in the previous tag.
                 if(!units.length) {
-                    videoTags[videoTags.length-1].push(_videoPES[i].data, _videoPES[i].payload, 
+                    videoTags[videoTags.length-1].push(_videoPES[i].data, _videoPES[i].payload,
                         _videoPES[i].data.length - _videoPES[i].payload);
                     continue;
                 }
@@ -232,7 +238,7 @@ package com.longtailvideo.adaptive.muxing {
                         _videoPES.push(new PES(pes,false));
                     } else if (_videoPES.length) {
                         _videoPES[_videoPES.length-1].append(pes);
-                    } else { 
+                    } else {
                         Log.txt("Discarding TS video packet without PES header.");
                     }
                     break;
