@@ -1,6 +1,9 @@
 package com.longtailvideo.adaptive.muxing {
 
 
+    import flash.utils.clearInterval;
+    import flash.utils.setInterval;
+    import flash.events.EventDispatcher;
     import com.longtailvideo.adaptive.AdaptiveEvent;
     import com.longtailvideo.adaptive.streaming.Loader;
     import com.longtailvideo.adaptive.muxing.*;
@@ -9,7 +12,7 @@ package com.longtailvideo.adaptive.muxing {
 
 
     /** Representation of an MPEG transport stream. **/
-    public class TS {
+    public class TS extends EventDispatcher {
 
 
         /** TS Sync byte. **/
@@ -41,15 +44,32 @@ package com.longtailvideo.adaptive.muxing {
         private var _data:ByteArray = null;
         private var _loader:Loader;
 
-
+        private var _intv:int = 0;
         /** Transmux the M2TS file into an FLV file. **/
         public function TS(data:ByteArray, loader:Loader) {
             _data = data;
             _loader = loader;
+            this.addEventListener(AdaptiveEvent.TS_PKG, _readAllPackageCallback);
             // Extract the elementary streams.
-            while(data.bytesAvailable) {
+            _intv = setInterval(_readPacketByTime, 1);
+        };
+        /**
+         * 间歇解析ts数据包，500个/毫秒
+         * 防止卡住播放界面
+         */
+        private function _readPacketByTime():void {
+            var i:int = 500;
+            while (_data.bytesAvailable && --i) {
                 _readPacket();
             }
+            if (!_data.bytesAvailable) {
+                this.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.TS_PKG));
+                clearInterval(_intv);
+            }
+        }
+
+        private function _readAllPackageCallback(event:AdaptiveEvent):void {
+            Log.txt('_readAllPackageCallback');
             if (_videoPES.length == 0 || _audioPES.length == 0 ) {
                 throw new Error("No AAC audio or AVC video stream found.");
             }
@@ -62,8 +82,7 @@ package com.longtailvideo.adaptive.muxing {
             // Extract the NALU video frames.
             _readNALU();
             _loader.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.TS_TS, this));
-
-        };
+        }
 
 
         /** Get audio configuration data. **/
