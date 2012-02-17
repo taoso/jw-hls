@@ -1,6 +1,7 @@
 package com.longtailvideo.adaptive {
 
 
+    import com.longtailvideo.adaptive.muxing.TS;
     import com.longtailvideo.adaptive.muxing.Tag;
     import flash.events.Event;
 
@@ -27,6 +28,10 @@ package com.longtailvideo.adaptive {
          * Loader异步加载_parseTS方法事件，触发时传送tags参数
          */
         public static const LOADER_PARSETS:String = "loader_parsets";
+        /**
+         * Loader异步加载TS对象，通过TS_TS方法传递TS，回调_parseTS方法
+         */
+        public static const TS_TS:String = "ts_ts";
 
         /** The current quality level. **/
         public var level:Number;
@@ -42,6 +47,7 @@ package com.longtailvideo.adaptive {
         public var state:String;
 
         public var tags:Vector.<Tag>;
+        public var ts:TS;
 
         /** Assign event parameter and dispatch. **/
         public function AdaptiveEvent(type:String, parameter:*=null) {
@@ -66,6 +72,9 @@ package com.longtailvideo.adaptive {
                     break;
                 case AdaptiveEvent.LOADER_PARSETS:
                     tags = parameter as Vector.<Tag>;
+                    break;
+                case AdaptiveEvent.TS_TS:
+                    ts = parameter as TS;
                     break;
             }
             super(type, false, false);
