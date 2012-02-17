@@ -10,7 +10,7 @@ package com.longtailvideo.adaptive.streaming {
 
 
     /** Class that fetches fragments. **/
-    public class Loader {
+    public class Loader extends EventDispatcher {
 
 
         /** Multiplier for bitrate/bandwidth comparison. **/
@@ -49,6 +49,7 @@ package com.longtailvideo.adaptive.streaming {
             _loader.dataFormat = URLLoaderDataFormat.BINARY;
             _loader.addEventListener(IOErrorEvent.IO_ERROR, _errorHandler);
             _loader.addEventListener(Event.COMPLETE, _completeHandler);
+            this.addEventListener(AdaptiveEvent.LOADER_PARSETS, _parseTSCompleteHandler);
         };
 
 
@@ -58,16 +59,20 @@ package com.longtailvideo.adaptive.streaming {
             var delay:Number = (new Date().valueOf() - _started) / 1000;
             _bandwidth = Math.round(_loader.bytesLoaded * 8 / delay);
             // Extract tags.
-            var tags:Vector.<Tag> = new Vector.<Tag>();
             try {
-                tags = _parseTS(tags);
-                _switched = false;
-                _callback(tags);
-                _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.FRAGMENT, getMetrics()));
+                _parseTS();
             } catch (error:Error) {
                 _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.ERROR, error.toString()));
             }
         };
+
+        private function _parseTSCompleteHandler(event:AdaptiveEvent):void {
+            Log.txt('_parseTSCompleteHandler');
+            var tags:Vector.<Tag> = event.tags;
+            _switched = false;
+            _callback(tags);
+            _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.FRAGMENT, getMetrics()));
+        }
 
 
         /** Catch IO and security errors. **/
@@ -115,7 +120,8 @@ package com.longtailvideo.adaptive.streaming {
 
 
         /** Parse a TS fragment. **/
-        private function _parseTS(tags:Vector.<Tag>):Vector.<Tag> {
+        private function _parseTS():void {
+            var tags:Vector.<Tag> = new Vector.<Tag>();
             var ts:TS = new TS(_loader.data);
             // Save codecprivate when not available.
             if(!_levels[_level].avcc && !_levels[_level].adif) {
@@ -145,7 +151,7 @@ package com.longtailvideo.adaptive.streaming {
                 ts.audioTags[j].fragment = _fragment;
                 tags.push(ts.audioTags[j]);
             }
-            return tags;
+            this.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.LOADER_PARSETS, tags));
         };
 
 
@@ -160,7 +166,7 @@ package com.longtailvideo.adaptive.streaming {
                 }
             }
             if(level == -1) {
-                _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.ERROR, 
+                _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.ERROR,
                     "None of the quality levels in this stream can be played."));
             }
             // Then update with highest possible level.
