@@ -36,13 +36,15 @@ package com.longtailvideo.adaptive.muxing {
         public var videoTags:Vector.<Tag> = new Vector.<Tag>();
         /** List of packetized elementary streams with AVC. **/
         private var _videoPES:Vector.<PES> = new Vector.<PES>();
+		private var _data:ByteArray = null;
 
 
         /** Transmux the M2TS file into an FLV file. **/
         public function TS(data:ByteArray) {
+			_data = data;
             // Extract the elementary streams.
             while(data.bytesAvailable) {
-                _readPacket(data);
+                _readPacket();
             }
             if (_videoPES.length == 0 || _audioPES.length == 0 ) {
                 throw new Error("No AAC audio or AVC video stream found.");
@@ -171,35 +173,35 @@ package com.longtailvideo.adaptive.muxing {
 
 
         /** Read TS packet. **/
-        private function _readPacket(dat:ByteArray):void {
+        private function _readPacket():void {
             // Each packet is 188 bytes.
             var todo:uint = TS.PACKETSIZE;
             // Sync byte.
-            if(dat.readByte() != TS.SYNCBYTE) {
+            if(_data.readByte() != TS.SYNCBYTE) {
                 throw new Error("Could not parse TS file: sync byte not found.");
             }
             todo--;
             // Payload unit start indicator.
-            var stt:uint = (dat.readUnsignedByte() & 64) >> 6;
-            dat.position--;
+            var stt:uint = (_data.readUnsignedByte() & 64) >> 6;
+            _data.position--;
             // Packet ID (last 13 bits of UI16).
-            var pid:uint = dat.readUnsignedShort() & 8191;
+            var pid:uint = _data.readUnsignedShort() & 8191;
             // Check for adaptation field.
             todo -=2;
-            var atf:uint = (dat.readByte() & 48) >> 4;
+            var atf:uint = (_data.readByte() & 48) >> 4;
             todo --;
             // Read adaptation field if available.
             if(atf > 1) {
                 // Length of adaptation field.
-                var len:uint = dat.readUnsignedByte();
+                var len:uint = _data.readUnsignedByte();
                 todo--;
                 // Random access indicator (keyframe).
-                var rai:uint = dat.readUnsignedByte() & 64;
-                dat.position += len - 1;
+                var rai:uint = _data.readUnsignedByte() & 64;
+                _data.position += len - 1;
                 todo -= len;
                 // Return if there's only adaptation field.
                 if(atf == 2 || len == 183) {
-                    dat.position += todo;
+                    _data.position += todo;
                     return;
                 }
             }
@@ -208,14 +210,14 @@ package com.longtailvideo.adaptive.muxing {
             // Parse the PES, split by Packet ID.
             switch (pid) {
                 case _patId:
-                    todo -= _readPAT(dat);
+                    todo -= _readPAT();
                     break;
                 case _pmtId:
-                    todo -= _readPMT(dat);
+                    todo -= _readPMT();
                     break;
                 case _aacId:
                 case _mp3Id:
-                    pes.writeBytes(dat,dat.position,todo);
+                    pes.writeBytes(_data,_data.position,todo);
                     if(stt) {
                         _audioPES.push(new PES(pes,true));
                     } else if (_audioPES.length) {
@@ -225,7 +227,7 @@ package com.longtailvideo.adaptive.muxing {
                     }
                     break;
                 case _avcId:
-                    pes.writeBytes(dat,dat.position,todo);
+                    pes.writeBytes(_data,_data.position,todo);
                     if(stt) {
                         _videoPES.push(new PES(pes,false));
                     } else if (_videoPES.length) {
@@ -239,38 +241,38 @@ package com.longtailvideo.adaptive.muxing {
                     break;
             }
             // Jump to the next packet.
-            dat.position += todo;
+            _data.position += todo;
         };
 
 
         /** Read the Program Association Table. **/
-        private function _readPAT(dat:ByteArray):Number {
+        private function _readPAT():Number {
             // Check the section length for a single PMT.
-            dat.position += 3;
-            if(dat.readUnsignedByte() > 13) {
+            _data.position += 3;
+            if(_data.readUnsignedByte() > 13) {
                 throw new Error("Multiple PMT/NIT entries are not supported.");
             }
             // Grab the PMT ID.
-            dat.position += 7;
-            _pmtId = dat.readUnsignedShort() & 8191;
+            _data.position += 7;
+            _pmtId = _data.readUnsignedShort() & 8191;
             return 13;
         };
 
 
         /** Read the Program Map Table. **/
-        private function _readPMT(dat:ByteArray):Number {
+        private function _readPMT():Number {
             // Check the section length for a single PMT.
-            dat.position += 3;
-            var len:uint = dat.readByte();
+            _data.position += 3;
+            var len:uint = _data.readByte();
             var read:uint = 13;
-            dat.position += 8;
-            var pil:Number = dat.readByte();
-            dat.position += pil;
+            _data.position += 8;
+            var pil:Number = _data.readByte();
+            _data.position += pil;
             read += pil;
             // Loop through the streams in the PMT.
             while(read < len) {
-                var typ:uint = dat.readByte();
-                var sid:uint = dat.readUnsignedShort() & 8191;
+                var typ:uint = _data.readByte();
+                var sid:uint = _data.readUnsignedShort() & 8191;
                 if(typ == 0x0F) {
                     _aacId = sid;
                 } else if (typ == 0x1B) {
@@ -279,9 +281,9 @@ package com.longtailvideo.adaptive.muxing {
                     _mp3Id = sid;
                 }
                 // Possible section length.
-                dat.position++;
-                var sel:uint = dat.readByte() & 0x0F;
-                dat.position += sel;
+                _data.position++;
+                var sel:uint = _data.readByte() & 0x0F;
+                _data.position += sel;
                 read += sel + 5;
             }
             return len;
