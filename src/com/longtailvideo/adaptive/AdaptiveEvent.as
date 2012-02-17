@@ -1,6 +1,7 @@
 package com.longtailvideo.adaptive {
 
 
+    import com.longtailvideo.adaptive.muxing.Tag;
     import flash.events.Event;
 
 
@@ -22,7 +23,10 @@ package com.longtailvideo.adaptive {
         public static const STATE:String = "adaptiveEventState";
         /** Identifier for a quality level switch event. **/
         public static const SWITCH:String = "adaptiveEventLevel";
-
+        /**
+         * Loader异步加载_parseTS方法事件，触发时传送tags参数
+         */
+        public static const LOADER_PARSETS:String = "loader_parsets";
 
         /** The current quality level. **/
         public var level:Number;
@@ -37,6 +41,7 @@ package com.longtailvideo.adaptive {
         /** The new playback state. **/
         public var state:String;
 
+        public var tags:Vector.<Tag>;
 
         /** Assign event parameter and dispatch. **/
         public function AdaptiveEvent(type:String, parameter:*=null) {
@@ -58,6 +63,9 @@ package com.longtailvideo.adaptive {
                     break;
                 case AdaptiveEvent.SWITCH:
                     level = parameter as Number;
+                    break;
+                case AdaptiveEvent.LOADER_PARSETS:
+                    tags = parameter as Vector.<Tag>;
                     break;
             }
             super(type, false, false);
