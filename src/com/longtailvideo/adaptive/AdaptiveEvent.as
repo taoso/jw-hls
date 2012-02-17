@@ -32,6 +32,7 @@ package com.longtailvideo.adaptive {
          * Loader异步加载TS对象，通过TS_TS方法传递TS，回调_parseTS方法
          */
         public static const TS_TS:String = "ts_ts";
+        public static const TS_PKG:String = "ts_pkg";
 
         /** The current quality level. **/
         public var level:Number;
