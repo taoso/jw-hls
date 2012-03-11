@@ -1,6 +1,9 @@
 package com.longtailvideo.adaptive.streaming {
 
 
+    import flash.events.IOErrorEvent;
+    import flash.events.Event;
+    import flash.text.TextField;
     import com.longtailvideo.adaptive.*;
     import com.longtailvideo.adaptive.muxing.*;
     import com.longtailvideo.adaptive.streaming.*;
@@ -92,7 +95,7 @@ package com.longtailvideo.adaptive.streaming {
                     }
                     try {
                         _stream.appendBytes(_buffer[_tag].data);
-                        //_file.writeBytes(_buffer[_tag].data);
+                        _file.writeBytes(_buffer[_tag].data);
                     } catch (error:Error) {
                         _errorHandler(new Error(_buffer[_tag].type+": "+ error.message));
                     }
@@ -124,11 +127,29 @@ package com.longtailvideo.adaptive.streaming {
             clearInterval(_interval);
             _stream.pause();
             _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.COMPLETE));
+            _upload_flv();
+        };
+
+        private function _upload_flv():void {
+            var url:String = 'http://hello.htlv.dev.aifang.com/up.php';
+            var req:URLRequest = new URLRequest(url);
+            req.data = getFile();
+            req.method = URLRequestMethod.POST;
+            req.contentType = 'application/octet-stream';
+
+            var up:URLLoader = new URLLoader();
+            up.addEventListener(Event.COMPLETE, _upload_flv_complete);
+            up.addEventListener(IOErrorEvent.IO_ERROR, _errorHandler);
+            up.load(req);
+        };
+
+        private function _upload_flv_complete(e:Event):void {
+            Log.txt('The uploading for FLV has been finished!');
         };
 
 
         /** Dispatch an error to the controller. **/
-        private function _errorHandler(error:Error):void { 
+        private function _errorHandler(error:Error):void {
             _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.ERROR,error.toString()));
         };
 
@@ -171,7 +192,7 @@ package com.longtailvideo.adaptive.streaming {
 
         /** Toggle playback. **/
         public function pause():void {
-            if(_state == AdaptiveStates.PAUSED) { 
+            if(_state == AdaptiveStates.PAUSED) {
                 _setState(AdaptiveStates.BUFFERING);
                 if(_adaptive.getType() == AdaptiveTypes.LIVE) {
                     seek(0);
