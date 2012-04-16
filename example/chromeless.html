@@ -1,0 +1,169 @@
+<html>
+<head>
+    <script type="text/javascript" src="swfobject.js"></script>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <title>Chromeless Tests</title>
+    <style>
+        body { padding: 50px; font: 13px/20px Arial; background: #EEE; }
+        form { margin-top: 20px; }
+        ul { margin-top: 40px; padding: 0 0 0 20px; list-style-type: square; }
+        object { box-shadow: 0 0 5px #999; }
+        hr { display: inline-block; width: 10px; border:0; }
+        input { width:30px; }
+        dl { position: absolute; left: 740px; top: 50px; }
+        dd { font-style: italic; margin-left: 25px; color: #333; }
+    </style>
+
+</head>
+<body>
+    <div id="player"></div>
+    <script type="text/javascript">
+        swfobject.embedSWF(
+            '../bin/chromelessPlayer.swf',
+            'player',
+            400,
+            300,
+            '11.2.0',
+            null,
+            {},
+            {allowfullscreen:'true',allowscriptaccess:'always',wmode:'direct'},
+            {id:'player',name:'player'}
+        );
+    </script>
+    <form>
+        <input type="text" id="url" value="" />
+        <input type="text" id="start" value="0" />
+        <button type="button" onclick="return play()">play</button>
+        <button type="button" onclick="return hello()">hello</button>
+        <hr/>
+        <button type="button" onclick="return pause()">pause</button>
+        <hr/>
+        <input type="text" id="pos" value="30" />
+        <button type="button" onclick="return seek()">seek</button>
+        <hr/>
+        <button type="button" onclick="return stop()">stop</button>
+        <hr/>
+        <input type="text" id="vol" value="25" />
+        <button type="button" onclick="return volume()">volume</button>
+    </form>
+    <dl id="events">
+        <dt>Stream type</dt>
+        <dd id="type">-</dd>
+        <dt>Quality level</dt>
+        <dd id="level">-</dd>
+        <dt>Manifest levels</dt>
+        <dd id="levels">-</dd>
+        <dt>QOS metrics</dt>
+        <dd id="metrics">-</dd>
+        <dt>Playback state</dt>
+        <dd id="state">-</dd>
+        <dt>Playback position</dt>
+        <dd id="position">-</dd>
+        <dt>Stream duration</dt>
+        <dd id="duration">-</dd>
+    </dl>
+
+    <script type="text/javascript">
+        // Reference to the player
+        var player;
+
+        // Event handlers
+        function onAdaptiveReady(id) {
+            console.log('hello');
+            player = document.getElementById(id);
+            player.onComplete('onComplete');
+            player.onError('onError');
+            player.onFragment('onFragment');
+            player.onManifest('onManifest');
+            player.onPosition('onPosition');
+            player.onState('onState');
+            player.onSwitch('onSwitch');
+        };
+        function onComplete() {
+            alert("Stream completed");
+        };
+        function onError(message) {
+            alert(message);
+        };
+        function onFragment(metrics) {
+            var text = 'bandwidth: '+ Math.round(metrics.bandwidth/1024) +
+                ' kbps, level: '+ metrics.level +
+                ', screenwidth: '+ metrics.screenwidth + 'px';
+            document.getElementById('metrics').innerHTML = text;
+        };
+        function onManifest(levels) {
+            var text = '';
+            for(var i = 0; i < levels.length; i++) {
+                if(levels[i].audio) {
+                    text += i+' (audio only): ';
+                } else {
+                    text += i+': ';
+                }
+                text += levels[i].bitrate + 'bps, ' +
+                    levels[i].duration + 'sec, ' +
+                    levels[i].width + 'x' +
+                    levels[i].height + 'px';
+                if( i < levels.length-1) { text += '<br/>'; }
+            }
+            document.getElementById('levels').innerHTML = text;
+            document.getElementById('level').innerHTML = player.getLevel();
+            document.getElementById('type').innerHTML = player.getType();
+        };
+        function onPosition(position) {
+            document.getElementById('position').innerHTML = position;
+        };
+        function onState(state) {
+            document.getElementById('state').innerHTML = state;
+        };
+        function onSwitch(level) {
+            document.getElementById('level').innerHTML = level;
+        };
+
+        function hello() {
+            player = document.getElementById('player');
+            player.hello();
+        }
+
+        // Funtion calls
+        function play(stream) {
+            if(!stream) {
+                stream = document.getElementById('url').value;
+            }
+            var pos = document.getElementById('start').value;
+            player.play(stream, pos);
+            return false;
+        };
+        function pause() {
+            player.pause();
+            return false;
+        };
+        function seek() {
+            var pos = document.getElementById('pos').value;
+            player.seek(pos);
+            return false;
+        };
+        function stop() {
+            player.stop();
+            return false;
+        };
+        function volume() {
+            var vol = document.getElementById('vol').value;
+            player.volume(vol);
+            return false;
+        };
+    </script>
+
+
+    <ul id="streamlist"></ul>
+    <script type="text/javascript" src="streams.js"></script>
+    <script type="text/javascript">
+        for(var i=0; i<teststreams.length; i++) {
+            var entry = document.createElement("li");
+            entry.innerHTML = "<a href='#' onclick='return play(\""+teststreams[i].file+"\")'>"+teststreams[i].title+"</a> ("+teststreams[i].description+")";
+            document.getElementById("streamlist").appendChild(entry);
+        }
+    </script>
+
+
+</body>
+</html>
