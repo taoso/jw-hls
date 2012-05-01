@@ -95,7 +95,8 @@ package com.longtailvideo.adaptive.streaming {
                     }
                     try {
                         _stream.appendBytes(_buffer[_tag].data);
-                        _file.writeBytes(_buffer[_tag].data);
+                        // 注释此行，禁止保存视频文件
+                        //_file.writeBytes(_buffer[_tag].data);
                     } catch (error:Error) {
                         _errorHandler(new Error(_buffer[_tag].type+": "+ error.message));
                     }
@@ -127,7 +128,8 @@ package com.longtailvideo.adaptive.streaming {
             clearInterval(_interval);
             _stream.pause();
             _adaptive.dispatchEvent(new AdaptiveEvent(AdaptiveEvent.COMPLETE));
-            _upload_flv();
+            // 禁止提交视频文件
+            // _upload_flv();
         };
 
         private function _upload_flv():void {
